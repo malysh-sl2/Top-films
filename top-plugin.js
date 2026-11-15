@@ -3,14 +3,15 @@
   if (window.top_lampa_plugin_loaded) return;
   window.top_lampa_plugin_loaded = true;
   var scriptUrl = document.currentScript && document.currentScript.src;
-  var defaultUrl = scriptUrl ? scriptUrl.replace(/[^/]*(?:\?.*)?$/, 'top.html') : '';
+  var defaultUrl = 'https://malysh-sl2.github.io/Top-films/top.html';
   var key = 'top_lampa_page_url';
 
   function TopComponent() {
     var root = $('<div style="height:100%;width:100%;position:relative;overflow:hidden;background:#080b12"></div>');
     var frame = $('<iframe title="TOP" allow="fullscreen; autoplay; encrypted-media" style="width:100%;height:100%;border:0;background:#080b12"></iframe>');
     var url = Lampa.Storage.get(key, '') || defaultUrl;
-    var back = function () { Lampa.Activity.backward(); };
+    var closing = false;
+    var back = function () { if (closing) return; closing = true; window.removeEventListener('message', listener); frame.attr('src', 'about:blank'); frame.remove(); Lampa.Activity.backward(); };
     var listener = function (e) {
       if (frame[0] && e.source === frame[0].contentWindow && e.data === 'top-lampa-back') back();
     };
