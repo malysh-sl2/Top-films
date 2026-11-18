@@ -2,7 +2,7 @@
 'use strict';
 if(window.topfilms_tv_loaded)return; window.topfilms_tv_loaded=true;
 var BASE='https://malysh-sl2.github.io/Top-films/data/';
-var tabs=[['movies-top','ТОП ФІЛЬМІВ'],['movies-find','ЗНАХІДКИ ФІЛЬМІВ'],['series-top','ТОП СЕРІАЛІВ'],['series-find','ЗНАХІДКИ СЕРІАЛІВ']];
+var tabs=[['movies-top','ТОП ФІЛЬМІВ'],['movies-find','ЗНАХІДКИ ФІЛЬМІВ'],['series-top','ТОП СЕРІАЛІВ'],['series-find','ЗНАХІДКИ СЕРІАЛІВ'],['new-popular','НАБИРАЮТЬ ПОПУЛЯРНІСТЬ']];
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(x){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]})}
 function Component(){
  var root=$('<div class="tf-screen"></div>'),scroll=new Lampa.Scroll({mask:false,over:true,step:250}),body=$('<div class="tf-body"></div>'),last=null,tab='movies-top',page=0,busy=false,more=true,dead=false,serial=0, net=null;
@@ -77,6 +77,7 @@ function Component(){
  function cancelHold(){clearTimeout(holdTimer);holdTimer=null;holdCard=null;holdShown=false;}
 
  function passes(m){
+  if(tab==='new-popular' && !(Number(m.new_until)>Date.now()))return false;
   if(watched[String(m.id)])return false;
   var year=parseInt(m.year,10), g=(m.g||[]).map(String), cs=m.co||[];
   if(!year || year<filters.from || year>filters.to)return false;
