@@ -7,6 +7,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(x){retur
 function Component(){
  var root=$('<div class="tf-screen"></div>'),scroll=new Lampa.Scroll({mask:false,over:true,step:250}),body=$('<div class="tf-body"></div>'),last=null,tab='movies-top',page=0,busy=false,more=true,dead=false,serial=0, net=null;
  var cacheKey='',cachePages=null, restoring=false, active=false, watched={};
+ var query='',searchMode=false,searchPage=0,searchMore=false,searchSeen={},reactionQueue=[],reactionTimer=null,reactionRequest=null;
  function readWatched(){try{['history','viewed'].forEach(function(type){(Lampa.Favorite.get({type:type})||[]).forEach(function(m){watched[String(m.id)]=true})})}catch(e){console.log('Top Films: історія недоступна',e)}}
  var filters={from:2026,to:9999,genres:[],excluded:[],countries:[],age:''};
  var genres=[["28", "Бойовик"], ["37", "Вестерн"], ["10752", "Військовий"], ["9648", "Детектив"], ["10762", "Дитячий"], ["99", "Документальний"], ["18", "Драма"], ["10759", "Екшн і Пригоди"], ["27", "Жахи"], ["36", "Історичний"], ["35", "Комедія"], ["80", "Кримінал"], ["10749", "Мелодрама"], ["10766", "Мильна опера"], ["10402", "Музика"], ["16", "Мультфільм"], ["10765", "Науково фантастичний"], ["10763", "Новини"], ["10768", "Політика та війна"], ["12", "Пригоди"], ["10764", "Реаліті-шоу"], ["10751", "Сімейний"], ["10770", "Телефільм"], ["10767", "Ток-шоу"], ["53", "Трилер"], ["878", "Фантастика"], ["14", "Фентезі"]];
@@ -56,10 +57,10 @@ function Component(){
   return '<div class="tf-card-info"><div>Країна: '+esc(co.length?co.join(', '):'невідома')+'</div><div>Жанр: '+esc(gen.length?gen.join(', '):'невідомий')+'</div></div>';
  }
  function renderCard(m){var c=m.c||{},p=m.poster?'https://image.tmdb.org/t/p/w342'+m.poster:'',age=(m.age!==null && m.age!==undefined && m.age!=='' && isFinite(Number(m.age)))?'<span>'+esc(m.age)+'+</span>':'';
- var el=$('<div class="tf-card selector"><div class="tf-poster">'+(p?'<img loading="lazy" src="'+esc(p)+'">':'')+(Number(m.new_until)>Date.now()?'<span class="tf-new">NEW</span>':'')+'<span class="tf-score">'+esc(Number(m.score).toFixed(1))+'</span><span class="tf-year-age">'+esc(m.year||'')+(age?' '+age:'')+'</span></div><div class="tf-reactions"><span>🔥'+esc(compact(c.fire))+'</span><span>👍'+esc(compact(c.like))+'</span><span>🤔'+esc(compact(c.think))+'</span><span>😴'+esc(compact(c.sleep))+'</span><span>💩'+esc(compact(c.shit))+'</span></div><div class="tf-name">'+esc(m.title)+'</div>'+cardInfo(m)+'</div>');
+ var el=$('<div class="tf-card selector"><div class="tf-poster">'+(p?'<img loading="lazy" src="'+esc(p)+'">':'')+(Number(m.new_until)>Date.now()?'<span class="tf-new">NEW</span>':'')+(m.score!==null && m.score!==undefined && isFinite(Number(m.score))?'<span class="tf-score">'+esc(Number(m.score).toFixed(1))+'</span>':'')+'<span class="tf-year-age">'+esc(m.year||'')+(age?' '+age:'')+'</span></div><div class="tf-reactions"><span>🔥'+esc(compact(c.fire))+'</span><span>👍'+esc(compact(c.like))+'</span><span>🤔'+esc(compact(c.think))+'</span><span>😴'+esc(compact(c.sleep))+'</span><span>💩'+esc(compact(c.shit))+'</span></div><div class="tf-name">'+esc(m.title)+'</div>'+cardInfo(m)+'</div>');
  var cell=$('<div class="tf-cell"></div>');
  el.data('tf-item',m);el.on('hover:focus',function(){focus(this)});el.on('hover:enter',function(){open(m)});
- cell.append(el);grid.append(cell)}
+ cell.append(el);grid.append(cell);return el}
  function historyMenu(m,card){
   Lampa.Select.show({title:m.title,items:[{title:'✓ Переглянуто — додати в історію',value:'history'}],
    onSelect:function(){
@@ -125,6 +126,7 @@ function Component(){
  }
 
  function load(){
+  if(searchMode){loadSearch();return}
   if(busy||!more||dead)return;
   busy=true;status.text('Завантаження…');
   var current=serial,next=page+1,pack=Math.ceil(next/10),packKey=tab+'-pack-'+pack;
@@ -146,9 +148,49 @@ function Component(){
   net.silent(BASE+packKey+'.json',show,function(){if(dead||serial!==current)return;busy=false;more=false;status.text(page?'Кінець списку або помилка мережі':'Не вдалося завантажити базу. Перевірте інтернет та файли GitHub.');});
  }
 
- function select(key){serial++;tab=key;page=0;busy=false;more=true;grid.empty();status.empty();nav.children().removeClass('tf-selected');nav.find('[data-tab="'+key+'"]').addClass('tf-selected');refreshFocus();load()}
- this.create=function(){readWatched();tabs.forEach(function(t){var b=mkbtn(t[1],function(){select(t[0])});b.attr('data-tab',t[0]);nav.append(b)});var header=$('<div class="tf-header"></div>');header.append(head,nav);body.append(header,setupFilters(),grid,status);scroll.append(body);root.append(scroll.render());scroll.onEnd=load;select(tab);return root};
- this.render=function(){return root};this.start=function(){active=true;readWatched();window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);controller()};this.pause=function(){active=false;cancelHold();window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true)};this.stop=function(){active=false;cancelHold();window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true)};this.back=function(){Lampa.Activity.backward()};this.destroy=function(){dead=true;cancelHold();window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);serial++;if(net)net.clear();scroll.destroy();root.remove()};
+ function stopReactions(){reactionQueue=[];if(reactionTimer)clearTimeout(reactionTimer);reactionTimer=null;if(reactionRequest){reactionRequest.abort();reactionRequest=null}}
+ function reactionNext(){
+  if(dead||!searchMode||reactionRequest||!reactionQueue.length)return;
+  var job=reactionQueue.shift(), token=serial;
+  reactionRequest=$.ajax({url:'https://cub.best/api/reactions/get/'+job.m.type+'_'+job.m.id,dataType:'json',timeout:12000});
+  reactionRequest.done(function(data){
+   if(dead||serial!==token||!searchMode)return;
+   if(!data||data.secuses!==true||!Array.isArray(data.result)){job.el.find('.tf-reactions').text('Реакції недоступні');return}
+   var c={fire:0,like:0,think:0,sleep:0,shit:0},map={fire:'fire',nice:'like',like:'like',think:'think',bore:'sleep',sleep:'sleep',shit:'shit'};
+   data.result.forEach(function(x){var k=map[x.type],n=Number(x.counter);if(k&&isFinite(n)&&n>=0)c[k]+=n});
+   var n=c.fire+c.like+c.think+c.sleep+c.shit;
+   if(!n){job.el.find('.tf-reactions').text('Реакцій немає');return}
+   var score=Math.max(0,Math.min(10,(c.fire*5+c.like*4+c.think*3-c.sleep*2.5-c.shit*5)/n+5));
+   job.el.find('.tf-reactions').html('<span>🔥'+esc(compact(c.fire))+'</span><span>👍'+esc(compact(c.like))+'</span><span>🤔'+esc(compact(c.think))+'</span><span>😴'+esc(compact(c.sleep))+'</span><span>💩'+esc(compact(c.shit))+'</span>');
+   job.el.find('.tf-poster').append('<span class="tf-score">'+esc((Math.round(score*100)/100).toFixed(1))+'</span>');
+  }).fail(function(){if(!dead&&serial===token&&searchMode)job.el.find('.tf-reactions').text('Реакції недоступні')}).always(function(){reactionRequest=null;if(!dead&&serial===token&&searchMode)reactionTimer=setTimeout(reactionNext,600)});
+ }
+ function loadSearch(){
+  if(dead||busy||!searchMore)return;busy=true;status.text('Шукаємо в Lampa…');var token=serial,next=searchPage+1;
+  try{Lampa.Api.search({query:query,page:next},function(groups){
+   if(dead||serial!==token||!searchMode)return;busy=false;
+   if(!groups||typeof groups!=='object'){more=searchMore=false;status.text('Помилка пошуку. Спробуйте ще раз.');return}
+   searchPage=next;searchMore=false;
+   [groups.movie,groups.tv].forEach(function(group){if(!group||(group.type!=='movie'&&group.type!=='tv')||!Array.isArray(group.results))return;
+    if(Number(group.total_pages)>next)searchMore=true;
+    group.results.forEach(function(x){if(!x||!x.id)return;var key=group.type+'_'+x.id;if(searchSeen[key])return;searchSeen[key]=true;
+     var d=x.release_date||x.first_air_date||'',m={id:x.id,type:group.type,title:x.title||x.name||x.original_title||x.original_name||'Без назви',poster:x.poster_path||'',year:String(d).slice(0,4),g:x.genre_ids||[],co:x.origin_country||[],score:null};
+     var el=renderCard(m);el.find('.tf-reactions').text('Завантаження реакцій…');reactionQueue.push({m:m,el:el});
+    });
+   });
+   more=searchMore;refreshFocus();status.text(searchMore?'Гортайте вниз для наступних результатів':(grid.children().length?'Кінець результатів':'Нічого не знайдено або пошук недоступний. Спробуйте ще раз.'));
+   reactionNext();
+  })}catch(e){if(serial===token){busy=false;more=searchMore=false;status.text('Помилка пошуку. Спробуйте ще раз.')}}
+ }
+ function startSearch(){
+  cancelHold();Lampa.Input.edit({title:'Пошук фільмів і серіалів',value:query,free:true,nosave:true,keyboard:'lampa',layout:'clarify'},function(value){
+   if(dead)return;Lampa.Controller.toggle('content');value=String(value||'').trim();if(!value)return;
+   stopReactions();serial++;query=value;searchMode=true;searchPage=0;searchMore=true;searchSeen={};busy=false;more=true;grid.empty();status.empty();nav.children().removeClass('tf-selected');refreshFocus();loadSearch();
+  });
+ }
+ function select(key){stopReactions();searchMode=false;serial++;tab=key;page=0;busy=false;more=true;grid.empty();status.empty();nav.children().removeClass('tf-selected');nav.find('[data-tab="'+key+'"]').addClass('tf-selected');refreshFocus();load()}
+ this.create=function(){readWatched();tabs.forEach(function(t){var b=mkbtn(t[1],function(){select(t[0])});b.attr('data-tab',t[0]);nav.append(b)});var header=$('<div class="tf-header"></div>');header.append(head,nav,mkbtn('ПОШУК',startSearch).addClass('tf-search'));body.append(header,setupFilters(),grid,status);scroll.append(body);root.append(scroll.render());scroll.onEnd=load;select(tab);return root};
+ this.render=function(){return root};this.start=function(){active=true;readWatched();window.addEventListener('keydown',keyDown,true);window.addEventListener('keyup',keyUp,true);controller()};this.pause=function(){active=false;cancelHold();window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true)};this.stop=function(){active=false;cancelHold();window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true)};this.back=function(){Lampa.Activity.backward()};this.destroy=function(){dead=true;stopReactions();cancelHold();window.removeEventListener('keydown',keyDown,true);window.removeEventListener('keyup',keyUp,true);serial++;if(net)net.clear();scroll.destroy();root.remove()};
 }
 function init(){
  Lampa.Component.add('topfilms_tv',Component);
