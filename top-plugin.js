@@ -2,7 +2,7 @@
 'use strict';
 if(window.topfilms_tv_loaded)return; window.topfilms_tv_loaded=true;
 var BASE='https://malysh-sl2.github.io/Top-films/data/';
-var tabs=[['movies-top','ТОП ФІЛЬМІВ'],['movies-find','ЗНАХІДКИ ФІЛЬМІВ'],['series-top','ТОП СЕРІАЛІВ'],['series-find','ЗНАХІДКИ СЕРІАЛІВ'],['new-popular','НАБИРАЮТЬ ПОПУЛЯРНІСТЬ']];
+var tabs=[['movies-top','TOP FILMS'],['movies-find','FILMS+'],['series-top','TOP СЕРІАЛ'],['series-find','СЕРІАЛ+'],['new-popular','NEW']];
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(x){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]})}
 function Component(){
  var root=$('<div class="tf-screen"></div>'),scroll=new Lampa.Scroll({mask:false,over:true,step:250}),body=$('<div class="tf-body"></div>'),last=null,tab='movies-top',page=0,busy=false,more=true,dead=false,serial=0, net=null;
@@ -29,7 +29,7 @@ function Component(){
   if(best){Navigator.focus(best);return true}return false;
  }
  function moveVertical(dir){
-  var inHeader=last && nav[0].contains(last), inFilter=last && $(last).closest('.tf-filter-nav').length;
+  var inHeader=last && (nav[0].contains(last) || $(last).hasClass('tf-search')), inFilter=last && $(last).closest('.tf-filter-nav').length;
   if(dir==='down' && inHeader && nearestVertical(body.find('.tf-filter-nav .selector'),'down'))return;
   if(dir==='down' && inFilter && nearestVertical(body.find('.tf-filter-nav .selector, .tf-grid .tf-card'),'down'))return;
   if(dir==='up' && inFilter && nearestVertical(body.find('.tf-filter-nav .selector, .tf-header .selector'),'up'))return;
@@ -37,7 +37,7 @@ function Component(){
   else if(dir==='down' && more)load();
   else if(dir==='up' && inHeader)Lampa.Controller.toggle('head');
  }
- function controller(){Lampa.Controller.add('content',{toggle:function(){Lampa.Controller.collectionSet(scroll.render());Lampa.Controller.collectionFocus(last||false,scroll.render())},up:function(){moveVertical('up')},down:function(){moveVertical('down')},left:function(){if(Navigator.canmove('left'))Navigator.move('left');else Lampa.Controller.toggle('menu')},right:function(){if(Navigator.canmove('right'))Navigator.move('right')},back:function(){Lampa.Activity.backward()}});Lampa.Controller.toggle('content')}
+ function controller(){Lampa.Controller.add('content',{toggle:function(){Lampa.Controller.collectionSet(scroll.render());Lampa.Controller.collectionFocus(last||false,scroll.render())},up:function(){moveVertical('up')},down:function(){moveVertical('down')},left:function(){if(last && $(last).hasClass('tf-search')){var end=nav.find('.selector').last();if(end.length){Navigator.focus(end[0]);return}}if(Navigator.canmove('left'))Navigator.move('left');else Lampa.Controller.toggle('menu')},right:function(){if(last && nav.find('.selector').last()[0]===last){var search=body.find('.tf-search');if(search.length){Navigator.focus(search[0]);return}}if(Navigator.canmove('right'))Navigator.move('right')},back:function(){Lampa.Activity.backward()}});Lampa.Controller.toggle('content')}
 
  function makeCard(m){return {id:m.id,media_type:m.type,title:m.title,name:m.title,poster_path:m.poster,release_date:m.year?m.year+'-01-01':'',first_air_date:m.year?m.year+'-01-01':'',source:'tmdb'};}
  function open(m){var card=makeCard(m);Lampa.Activity.push({url:'',title:m.title,component:'full',id:m.id,method:m.type==='tv'?'tv':'movie',card:card,source:'tmdb'});}
